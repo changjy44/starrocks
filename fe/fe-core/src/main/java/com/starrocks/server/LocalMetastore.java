@@ -38,7 +38,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -57,7 +56,6 @@ import com.starrocks.analysis.SlotRef;
 import com.starrocks.analysis.StringLiteral;
 import com.starrocks.analysis.TableName;
 import com.starrocks.analysis.TableRef;
-import com.starrocks.analysis.TypeDef;
 import com.starrocks.analysis.UserVariableHint;
 import com.starrocks.binlog.BinlogConfig;
 import com.starrocks.catalog.CatalogRecycleBin;
@@ -68,7 +66,6 @@ import com.starrocks.catalog.Column;
 import com.starrocks.catalog.DataProperty;
 import com.starrocks.catalog.Database;
 import com.starrocks.catalog.DistributionInfo;
-import com.starrocks.catalog.DynamicPartitionProperty;
 import com.starrocks.catalog.ExpressionRangePartitionInfo;
 import com.starrocks.catalog.ExpressionRangePartitionInfoV2;
 import com.starrocks.catalog.FunctionSet;
@@ -115,7 +112,6 @@ import com.starrocks.common.ErrorReportException;
 import com.starrocks.common.InvalidOlapTableStateException;
 import com.starrocks.common.MaterializedViewExceptions;
 import com.starrocks.common.MetaNotFoundException;
-import com.starrocks.common.NotImplementedException;
 import com.starrocks.common.Pair;
 import com.starrocks.common.Status;
 import com.starrocks.common.TimeoutException;
@@ -202,7 +198,6 @@ import com.starrocks.sql.ast.AlterTableStmt;
 import com.starrocks.sql.ast.AlterViewStmt;
 import com.starrocks.sql.ast.AsyncRefreshSchemeDesc;
 import com.starrocks.sql.ast.CancelAlterTableStmt;
-import com.starrocks.sql.ast.ColumnDef;
 import com.starrocks.sql.ast.ColumnRenameClause;
 import com.starrocks.sql.ast.CreateMaterializedViewStatement;
 import com.starrocks.sql.ast.CreateMaterializedViewStmt;
@@ -216,14 +211,9 @@ import com.starrocks.sql.ast.DropPartitionClause;
 import com.starrocks.sql.ast.DropTableStmt;
 import com.starrocks.sql.ast.ExpressionPartitionDesc;
 import com.starrocks.sql.ast.IntervalLiteral;
-import com.starrocks.sql.ast.ListPartitionDesc;
-import com.starrocks.sql.ast.MultiItemListPartitionDesc;
-import com.starrocks.sql.ast.MultiRangePartitionDesc;
-import com.starrocks.sql.ast.PartitionConvertContext;
 import com.starrocks.sql.ast.PartitionDesc;
 import com.starrocks.sql.ast.PartitionRangeDesc;
 import com.starrocks.sql.ast.PartitionRenameClause;
-import com.starrocks.sql.ast.RangePartitionDesc;
 import com.starrocks.sql.ast.RecoverDbStmt;
 import com.starrocks.sql.ast.RecoverPartitionStmt;
 import com.starrocks.sql.ast.RecoverTableStmt;
@@ -232,7 +222,6 @@ import com.starrocks.sql.ast.RefreshSchemeClause;
 import com.starrocks.sql.ast.ReplacePartitionClause;
 import com.starrocks.sql.ast.RollupRenameClause;
 import com.starrocks.sql.ast.ShowAlterStmt;
-import com.starrocks.sql.ast.SingleItemListPartitionDesc;
 import com.starrocks.sql.ast.SingleRangePartitionDesc;
 import com.starrocks.sql.ast.SystemVariable;
 import com.starrocks.sql.ast.TableRenameClause;
@@ -867,19 +856,14 @@ public class LocalMetastore implements ConnectorMetadata {
             throws DdlException, AnalysisException {
         Locker locker = new Locker();
         locker.lockDatabase(db, LockType.READ);
-        Map<String, String> tableProperties;
-        OlapTable olapTable;
-        PartitionInfo partitionInfo;
         try {
             Table table = db.getTable(tableName);
             CatalogUtils.checkTableExist(db, tableName);
             CatalogUtils.checkNativeTable(db, table);
-            olapTable = (OlapTable) table;
-            tableProperties = olapTable.getTableProperty().getProperties();
-            partitionInfo = olapTable.getPartitionInfo();
         } finally {
             locker.unLockDatabase(db, LockType.READ);
         }
+<<<<<<< HEAD
         PartitionDesc partitionDesc = addPartitionClause.getPartitionDesc();
         if (partitionDesc instanceof SingleItemListPartitionDesc
                 || partitionDesc instanceof MultiItemListPartitionDesc
@@ -972,6 +956,9 @@ public class LocalMetastore implements ConnectorMetadata {
                 }
             }
         }
+=======
+        addPartitions(ctx, db, tableName, addPartitionClause.getResolvedPartitionDescList(), addPartitionClause);
+>>>>>>> 9773e866e9 ([Enhancement] Move some add/drop partition analysis logic to AlterTableClauseAnalyzer (#47106))
     }
 
     private void checkAutoPartitionTableLimit(FunctionCallExpr functionCallExpr,
@@ -1021,6 +1008,7 @@ public class LocalMetastore implements ConnectorMetadata {
         }
     }
 
+<<<<<<< HEAD
     private void analyzeAddPartition(OlapTable olapTable, List<PartitionDesc> partitionDescs,
                                      AddPartitionClause addPartitionClause, PartitionInfo partitionInfo)
             throws DdlException, AnalysisException, NotImplementedException {
@@ -1073,6 +1061,8 @@ public class LocalMetastore implements ConnectorMetadata {
         }
     }
 
+=======
+>>>>>>> 9773e866e9 ([Enhancement] Move some add/drop partition analysis logic to AlterTableClauseAnalyzer (#47106))
     private DistributionInfo getDistributionInfo(OlapTable olapTable, AddPartitionClause addPartitionClause)
             throws DdlException {
         DistributionInfo distributionInfo;
@@ -1392,9 +1382,6 @@ public class LocalMetastore implements ConnectorMetadata {
             // check partition type
             checkPartitionType(partitionInfo);
 
-            // analyze add partition
-            analyzeAddPartition(olapTable, partitionDescs, addPartitionClause, partitionInfo);
-
             // get distributionInfo
             distributionInfo = getDistributionInfo(olapTable, addPartitionClause).copy();
             olapTable.inferDistribution(distributionInfo);
@@ -1404,8 +1391,6 @@ public class LocalMetastore implements ConnectorMetadata {
             copiedTable = getShadowCopyTable(olapTable);
             copiedTable.setDefaultDistributionInfo(distributionInfo);
             checkExistPartitionName = CatalogUtils.checkPartitionNameExistForAddPartitions(olapTable, partitionDescs);
-        } catch (AnalysisException | NotImplementedException e) {
-            throw new DdlException(e.getMessage(), e);
         } finally {
             locker.unLockDatabase(db, LockType.READ);
         }
@@ -1582,14 +1567,20 @@ public class LocalMetastore implements ConnectorMetadata {
         }
     }
 
+    @Override
     public void dropPartition(Database db, Table table, DropPartitionClause clause) throws DdlException {
         CatalogUtils.checkTableExist(db, table.getName());
         OlapTable olapTable = (OlapTable) table;
+<<<<<<< HEAD
         Locker locker = new Locker();
         Preconditions.checkArgument(locker.isWriteLockHeldByCurrentThread(db));
 
         String partitionName = clause.getPartitionName();
         boolean isTempPartition = clause.isTempPartition();
+=======
+        Preconditions.checkArgument(locker.isDbWriteLockHeldByCurrentThread(db));
+        PartitionInfo partitionInfo = olapTable.getPartitionInfo();
+>>>>>>> 9773e866e9 ([Enhancement] Move some add/drop partition analysis logic to AlterTableClauseAnalyzer (#47106))
 
         if (olapTable.getState() != OlapTable.OlapTableState.NORMAL) {
             throw InvalidOlapTableStateException.of(olapTable.getState(), olapTable.getName());
@@ -1608,6 +1599,7 @@ public class LocalMetastore implements ConnectorMetadata {
         if (!partitionInfo.isRangePartition() && partitionInfo.getType() != PartitionType.LIST) {
             throw new DdlException("Alter table [" + olapTable.getName() + "] failed. Not a partitioned table");
         }
+<<<<<<< HEAD
 
         // drop
         if (isTempPartition) {
@@ -1615,6 +1607,48 @@ public class LocalMetastore implements ConnectorMetadata {
         } else {
             Partition partition = olapTable.getPartition(partitionName);
             if (!clause.isForceDrop()) {
+=======
+        boolean isTempPartition = clause.isTempPartition();
+
+        List<String> existPartitions = Lists.newArrayList();
+        List<String> notExistPartitions = Lists.newArrayList();
+        for (String partitionName : clause.getResolvedPartitionNames()) {
+            if (olapTable.checkPartitionNameExist(partitionName, isTempPartition)) {
+                existPartitions.add(partitionName);
+            } else {
+                notExistPartitions.add(partitionName);
+            }
+        }
+        if (CollectionUtils.isNotEmpty(notExistPartitions)) {
+            if (clause.isSetIfExists()) {
+                LOG.info("drop partition[{}] which does not exist", notExistPartitions);
+            } else {
+                ErrorReport.reportDdlException(ErrorCode.ERR_DROP_PARTITION_NON_EXISTENT, notExistPartitions);
+            }
+        }
+        if (CollectionUtils.isEmpty(existPartitions)) {
+            return;
+        }
+        for (String partitionName : existPartitions) {
+            // drop
+            if (isTempPartition) {
+                olapTable.dropTempPartition(partitionName, true);
+            } else {
+                Partition partition = olapTable.getPartition(partitionName);
+                if (!clause.isForceDrop()) {
+                    if (partition != null) {
+                        if (stateMgr.getGlobalTransactionMgr()
+                                .existCommittedTxns(db.getId(), olapTable.getId(), partition.getId())) {
+                            throw new DdlException(
+                                    "There are still some transactions in the COMMITTED state waiting to be completed." +
+                                            " The partition [" + partitionName +
+                                            "] cannot be dropped. If you want to forcibly drop(cannot be recovered)," +
+                                            " please use \"DROP PARTITION <partition> FORCE\".");
+                        }
+                    }
+                }
+                Range<PartitionKey> partitionRange = null;
+>>>>>>> 9773e866e9 ([Enhancement] Move some add/drop partition analysis logic to AlterTableClauseAnalyzer (#47106))
                 if (partition != null) {
                     if (stateMgr.getGlobalTransactionMgr()
                             .existCommittedTxns(db.getId(), olapTable.getId(), partition.getId())) {
@@ -1657,8 +1691,11 @@ public class LocalMetastore implements ConnectorMetadata {
                 clause.isForceDrop());
         GlobalStateMgr.getCurrentState().getEditLog().logDropPartition(info);
 
+<<<<<<< HEAD
         LOG.info("succeed in droping partition[{}], is temp : {}, is force : {}", partitionName, isTempPartition,
                 clause.isForceDrop());
+=======
+>>>>>>> 9773e866e9 ([Enhancement] Move some add/drop partition analysis logic to AlterTableClauseAnalyzer (#47106))
     }
 
     public void replayDropPartition(DropPartitionInfo info) {
